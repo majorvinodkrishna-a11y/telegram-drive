@@ -1,0 +1,2 @@
+# Ignore APK binaries (>100MB exceeds GitHub push limit)
+*.apk
