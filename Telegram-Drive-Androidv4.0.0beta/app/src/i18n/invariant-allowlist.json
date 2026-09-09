@@ -1,0 +1,67 @@
+{
+  "keys": [
+    "common.app_title"
+  ],
+  "tokens": [
+    "Telegram Drive",
+    "Telegram",
+    "Saved Messages",
+    "SOCKS5",
+    "HTTP",
+    "HTTPS",
+    "VPN",
+    "WebDAV",
+    "REST API",
+    "API ID",
+    "API Hash",
+    "HLS",
+    "MP4",
+    "PDF",
+    "ZIP",
+    "RAR",
+    "7z",
+    "LAN",
+    "Tailscale",
+    "WiFi",
+    "127.0.0.1",
+    "127.0.0.1:14201",
+    "1–65535",
+    "1024",
+    "65535",
+    "0",
+    "1",
+    "2",
+    "5",
+    "10",
+    "100",
+    "FLOOD_WAIT",
+    "RAM",
+    "DC",
+    "DCs",
+    "IP",
+    "URL",
+    "URLs",
+    "{{count}}",
+    "{{port}}",
+    "{{version}}",
+    "{{date}}",
+    "{{name}}",
+    "{{error}}",
+    "{{key}}"
+  ],
+  "localeKeys": {
+    "it": [
+      "common.proxy",
+      "common.host",
+      "common.password",
+      "settings.tab_proxy",
+      "settings.base_mode",
+      "settings.encryption_mode_standard",
+      "notifications.files_count_one"
+    ],
+    "vi": [
+      "common.proxy",
+      "settings.tab_proxy"
+    ]
+  }
+}
