@@ -1,0 +1,113 @@
+# Build a debug/universal Android APK of Telegram Drive on GitHub's own
+# runners (full Android SDK + NDK + Rust toolchain, unrestricted internet),
+# then upload it as a downloadable artifact you can side-load onto a phone.
+#
+# Why this exists: this repo's Telegram Drive is a Tauri (Rust) app. Building
+# an APK needs the Android SDK/NDK + JDK 17 + Rust android targets, which only
+# this cloud runner has ready to go.
+#
+# How to use:
+#   1. Push this file to the branch (or the repo's default branch).
+#   2. On GitHub: Actions tab -> "Build Android APK" -> "Run workflow"
+#      -> pick the branch -> Run workflow.
+#   3. When green, open the run, scroll to the "Artifacts" section, download
+#      `telegram-drive-android-apk`, unzip, and install the `.apk` on your phone.
+#      (Enable "Install unknown apps" for the file manager on Android first.)
+
+name: Build Android APK
+
+on:
+  workflow_dispatch:          # manual trigger from the Actions tab
+  push:
+    branches:
+      - arena/01a08510-telegram-drive
+      - main
+
+concurrency:
+  group: build-android-apk
+  cancel-in-progress: true
+
+jobs:
+  build-apk:
+    name: Build APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      APP_DIR: Telegram-Drive-Androidv4.0.0beta/app
+      ANDROID_HOME: ${{ runner.temp }}/android-sdk
+    steps:
+      - uses: actions/checkout@v4
+
+      # ---------- Toolchain: Node 20 ----------
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: Telegram-Drive-Androidv4.0.0beta/app/package-lock.json
+
+      # ---------- Toolchain: JDK 17 (Tauri/AGP want 17) ----------
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      # ---------- Toolchain: Rust + Android compile targets ----------
+      - name: Install Rust (stable) with Android targets
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+          rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
+
+      # ---------- Toolchain: Android SDK + NDK ----------
+      # Android Studio ships the SDK, but on a bare runner we download the
+      # command-line tools and install the SDK/NDK with sdkmanager.
+      - name: Install Android SDK & NDK
+        run: |
+          set -euo pipefail
+          mkdir -p "$ANDROID_HOME/cmdline-tools"
+          curl -fsSL -o /tmp/clt.zip \
+            https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+          unzip -q /tmp/clt.zip -d "$ANDROID_HOME/cmdline-tools"
+          mv "$ANDROID_HOME/cmdline-tools/cmdline-tools" "$ANDROID_HOME/cmdline-tools/latest"
+          # Accept all SDK licenses
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install \
+            "platform-tools" \
+            "platforms;android-34" \
+            "build-tools;34.0.0" \
+            "ndk;27.2.12479018"
+          NDK_VER="$(ls "$ANDROID_HOME/ndk")"
+          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/$NDK_VER" >> "$GITHUB_ENV"
+          echo "Installed NDK: $NDK_VER"
+
+      # ---------- Frontend: install & type-check & build (web) ----------
+      - name: Install JS dependencies
+        working-directory: ${{ env.APP_DIR }}
+        run: npm ci
+
+      - name: Type-check (tsc)
+        working-directory: ${{ env.APP_DIR }}
+        run: npx tsc --noEmit
+
+      - name: Build frontend (vite)
+        working-directory: ${{ env.APP_DIR }}
+        run: npm run build
+
+      # ---------- Scaffold + compile the Android app ----------
+      - name: Generate Android project
+        working-directory: ${{ env.APP_DIR }}
+        run: npm run tauri -- android init
+
+      - name: Build Android APK (debug)
+        working-directory: ${{ env.APP_DIR }}
+        run: npm run tauri -- android build --debug --apk
+
+      # ---------- Upload the APK as a downloadable artifact ----------
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: telegram-drive-android-apk
+          path: |
+            Telegram-Drive-Androidv4.0.0beta/app/src-tauri/gen/android/**/*.apk
+          if-no-files-found: error
+          retention-days: 14
